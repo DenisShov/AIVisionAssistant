@@ -29,7 +29,9 @@ class FirebaseAssistantRepository : AssistantRepository {
                 image(uploadBitmap)
                 text(PromptComposer.compose(query, classification, ocrResult))
             }
-            model.generateContent(prompt).text?.takeIf(String::isNotBlank)
+            model.generateContent(prompt)
+                .text
+                ?.takeIf(String::isNotBlank)
                 ?: error("Gemini returned no text response.")
         } finally {
             if (uploadBitmap !== image) uploadBitmap.recycle()

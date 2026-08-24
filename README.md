@@ -5,14 +5,31 @@ domain/repository boundaries.
 
 ## Pipeline
 
-1. Android `SpeechRecognizer` captures a spoken question locally.
-2. ML Kit Document Scanner captures or imports a one-page image.
-3. ML Kit Text Recognition V2 extracts text locally and returns numbered block bounding boxes.
-   The overlay can be hidden, and the recognized text remains selectable in the UI.
-4. LiteRT runs the bundled quantized MobileNet V2 model on-device. It attempts NPU, then GPU,
-   and falls back to CPU if an accelerator cannot compile or execute the model.
-5. The image, spoken/typed question, local OCR blocks, and classification hint are sent to
+1. Android `SpeechRecognizer` captures spoken instructions locally.
+2. ML Kit Document Scanner captures a one-page image, or Android's system Photo Picker imports an
+   image from the gallery without broad media/storage permission.
+3. As soon as an image is available, LiteRT classification and ML Kit Text Recognition V2 run
+   concurrently on-device. The LiteRT result appears immediately below the image and is cached for
+   the later Gemini request. OCR returns numbered block bounding boxes; the overlay can be hidden,
+   and recognized text remains selectable.
+4. When OCR finds enough text, bundled ML Kit Language Identification runs locally and displays the
+   most likely language with confidence. A confident non-English result adds a suggestion such as
+   **Translate the Ukrainian text to English**. If detection is uncertain, the app keeps a generic
+   English-translation suggestion. Language identification depends on OCR producing usable text.
+5. LiteRT uses the bundled quantized MobileNet V2 model. It attempts NPU, then GPU, and falls back
+   to CPU if an accelerator cannot compile or execute the model.
+6. The app derives up to six instruction suggestions from local OCR, detected language, and LiteRT
+   results. It detects
+   likely invoices, receipts, dates, contact details, tables, long documents, or general images.
+   Suggestions are generated on-device and do not make another cloud request. Tapping one or more
+   bubbles adds them to the editable instructions field; users can also type or speak anything.
+7. The image, user instructions, local OCR blocks, and classification hint are sent to
    `gemini-3.6-flash` through Firebase AI Logic, protected by Firebase App Check.
+
+Free-form Gemini responses render selectable Markdown, including headings, emphasis, lists,
+quotes, links, inline code, and fenced code blocks. Prompt keystrokes remain local to the Compose
+text editor and are committed to the ViewModel only when processing starts, avoiding whole-screen
+state updates while typing.
 
 The result card reports which LiteRT accelerator actually completed inference. Public LiteRT
 support for Google Tensor NPUs varies by device/runtime; when the NPU provider is unavailable,
@@ -63,6 +80,7 @@ debug App Check provider in a release build.
 - LiteRT 2.2.0 (`litert` + `litert-api`)
 - ML Kit Document Scanner 16.0.0
 - ML Kit Text Recognition 16.0.1 (bundled Latin-script model)
+- ML Kit Language Identification 17.0.6 (bundled on-device model)
 - Firebase BoM 34.18.0 (`firebase-ai`, App Check Debug, and Play Integrity)
 - Google Services Gradle plugin 4.5.0
 - AndroidX Activity 1.13.0, Lifecycle 2.11.0, Core KTX 1.19.0

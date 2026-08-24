@@ -7,11 +7,16 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.multimodalassistant.BuildConfig
 import com.example.multimodalassistant.data.classifier.LiteRtImageClassifier
+import com.example.multimodalassistant.data.language.MlKitTextLanguageIdentifier
 import com.example.multimodalassistant.data.ocr.MlKitOcrRepository
 import com.example.multimodalassistant.data.remote.FirebaseAssistantRepository
 import com.example.multimodalassistant.domain.model.ClassificationResult
+import com.example.multimodalassistant.domain.model.DetectedLanguage
 import com.example.multimodalassistant.domain.model.OcrResult
+import com.example.multimodalassistant.domain.repository.ImageClassifier
 import com.example.multimodalassistant.domain.repository.OcrRepository
+import com.example.multimodalassistant.domain.repository.TextLanguageIdentifier
+import com.example.multimodalassistant.domain.usecase.InstructionSuggestionGenerator
 import com.example.multimodalassistant.domain.usecase.ProcessAssistantQueryUseCase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -24,53 +29,71 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 enum class ProcessingStage(val message: String) {
-    CLASSIFYING("Running MobileNet V2 locally with LiteRT…"),
-    SYNTHESIZING("LiteRT complete. Asking Gemini 3.6 Flash…"),
+    SYNTHESIZING("Asking Gemini 3.6 Flash…"),
 }
 
 data class AssistantUiState(
-    val prompt: String = "",
     val image: Bitmap? = null,
     val isScanning: Boolean = false,
+    val isImporting: Boolean = false,
     val isRecognizingText: Boolean = false,
+    val isIdentifyingLanguage: Boolean = false,
+    val isClassifying: Boolean = false,
     val ocrResult: OcrResult? = null,
     val ocrError: String? = null,
+    val detectedLanguage: DetectedLanguage? = null,
+    val languageIdentificationAttempted: Boolean = false,
+    val languageIdentificationError: String? = null,
     val showOcrBoxes: Boolean = true,
     val processingStage: ProcessingStage? = null,
     val classification: ClassificationResult? = null,
+    val classificationError: String? = null,
+    val suggestedInstructions: List<String> = emptyList(),
     val response: String? = null,
     val error: String? = null,
     val firebaseConfigured: Boolean = BuildConfig.FIREBASE_CONFIGURED,
 ) {
-    val canSubmit: Boolean
-        get() = image != null && prompt.isNotBlank() && !isRecognizingText && processingStage == null
+    fun canSubmit(prompt: String): Boolean =
+        image != null &&
+            prompt.isNotBlank() &&
+            !isRecognizingText &&
+            !isClassifying &&
+            processingStage == null
 }
 
 class AssistantViewModel(
     private val processAssistantQuery: ProcessAssistantQueryUseCase,
+    private val imageClassifier: ImageClassifier,
     private val ocrRepository: OcrRepository,
+    private val textLanguageIdentifier: TextLanguageIdentifier,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(AssistantUiState())
     val uiState: StateFlow<AssistantUiState> = _uiState.asStateFlow()
     private var ocrJob: Job? = null
-
-    fun updatePrompt(prompt: String) {
-        _uiState.update { it.copy(prompt = prompt, error = null) }
-    }
+    private var classificationJob: Job? = null
 
     fun setImage(bitmap: Bitmap) {
         ocrJob?.cancel()
+        classificationJob?.cancel()
         _uiState.update {
             it.copy(
                 image = bitmap,
                 isRecognizingText = true,
+                isIdentifyingLanguage = false,
+                isClassifying = true,
                 ocrResult = null,
                 ocrError = null,
+                detectedLanguage = null,
+                languageIdentificationAttempted = false,
+                languageIdentificationError = null,
                 showOcrBoxes = true,
                 classification = null,
+                classificationError = null,
+                suggestedInstructions = InstructionSuggestionGenerator.generate(null, null),
                 response = null,
                 error = null,
                 isScanning = false,
+                isImporting = false,
             )
         }
 
@@ -80,9 +103,49 @@ class AssistantViewModel(
                 _uiState.update { current ->
                     if (current.image !== bitmap) current else current.copy(
                         isRecognizingText = false,
+                        isIdentifyingLanguage = result.hasText,
                         ocrResult = result,
                         ocrError = null,
+                        suggestedInstructions = InstructionSuggestionGenerator.generate(
+                            result,
+                            current.classification,
+                        ),
                     )
+                }
+
+                if (result.hasText) {
+                    try {
+                        val detectedLanguage = textLanguageIdentifier.identify(result.fullText)
+                        _uiState.update { current ->
+                            if (current.image !== bitmap) current else current.copy(
+                                isIdentifyingLanguage = false,
+                                detectedLanguage = detectedLanguage,
+                                languageIdentificationAttempted = true,
+                                languageIdentificationError = null,
+                                suggestedInstructions = InstructionSuggestionGenerator.generate(
+                                    result,
+                                    current.classification,
+                                    detectedLanguage,
+                                ),
+                            )
+                        }
+                    } catch (cancellation: CancellationException) {
+                        throw cancellation
+                    } catch (error: Exception) {
+                        _uiState.update { current ->
+                            if (current.image !== bitmap) current else current.copy(
+                                isIdentifyingLanguage = false,
+                                detectedLanguage = null,
+                                languageIdentificationAttempted = true,
+                                languageIdentificationError = error.localizedMessage
+                                    ?: "Language identification failed.",
+                                suggestedInstructions = InstructionSuggestionGenerator.generate(
+                                    result,
+                                    current.classification,
+                                ),
+                            )
+                        }
+                    }
                 }
             } catch (cancellation: CancellationException) {
                 throw cancellation
@@ -90,8 +153,47 @@ class AssistantViewModel(
                 _uiState.update { current ->
                     if (current.image !== bitmap) current else current.copy(
                         isRecognizingText = false,
+                        isIdentifyingLanguage = false,
                         ocrResult = null,
                         ocrError = error.localizedMessage ?: "Text recognition failed.",
+                        suggestedInstructions = InstructionSuggestionGenerator.generate(
+                            null,
+                            current.classification,
+                        ),
+                    )
+                }
+            }
+        }
+
+        classificationJob = viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val result = imageClassifier.classify(bitmap)
+                _uiState.update { current ->
+                    if (current.image !== bitmap) current else current.copy(
+                        isClassifying = false,
+                        classification = result,
+                        classificationError = null,
+                        suggestedInstructions = InstructionSuggestionGenerator.generate(
+                            current.ocrResult,
+                            result,
+                            current.detectedLanguage,
+                        ),
+                    )
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Exception) {
+                _uiState.update { current ->
+                    if (current.image !== bitmap) current else current.copy(
+                        isClassifying = false,
+                        classification = null,
+                        classificationError = error.localizedMessage
+                            ?: "On-device image classification failed.",
+                        suggestedInstructions = InstructionSuggestionGenerator.generate(
+                            current.ocrResult,
+                            null,
+                            current.detectedLanguage,
+                        ),
                     )
                 }
             }
@@ -106,15 +208,27 @@ class AssistantViewModel(
         _uiState.update { it.copy(isScanning = isScanning, error = null) }
     }
 
-    fun showError(message: String) {
-        _uiState.update { it.copy(error = message, processingStage = null, isScanning = false) }
+    fun setImporting(isImporting: Boolean) {
+        _uiState.update { it.copy(isImporting = isImporting, error = null) }
     }
 
-    fun process() {
+    fun showError(message: String) {
+        _uiState.update {
+            it.copy(
+                error = message,
+                processingStage = null,
+                isScanning = false,
+                isImporting = false,
+            )
+        }
+    }
+
+    fun process(promptInput: String) {
         val current = _uiState.value
         val image = current.image ?: return showError("Scan or import an image first.")
-        val query = current.prompt.trim()
-        if (query.isBlank()) return showError("Enter or record a question first.")
+        if (current.isClassifying) return showError("Wait for on-device classification to finish.")
+        val query = promptInput.trim()
+        if (query.isBlank()) return showError("Enter, select, or record instructions first.")
         if (!current.firebaseConfigured) {
             return showError("Add app/google-services.json from your Firebase project, then rebuild.")
         }
@@ -122,28 +236,29 @@ class AssistantViewModel(
         viewModelScope.launch {
             _uiState.update {
                 it.copy(
-                    processingStage = ProcessingStage.CLASSIFYING,
-                    classification = null,
+                    processingStage = ProcessingStage.SYNTHESIZING,
                     response = null,
                     error = null,
                 )
             }
 
             try {
-                val (classification, response) = withContext(Dispatchers.IO) {
-                    processAssistantQuery(query, image, current.ocrResult) { localResult ->
-                        _uiState.update {
-                            it.copy(
-                                processingStage = ProcessingStage.SYNTHESIZING,
-                                classification = localResult,
-                            )
-                        }
-                    }
+                val classification = current.classification ?: ClassificationResult(
+                    label = "On-device classification unavailable",
+                    confidence = 0f,
+                    accelerator = "Unavailable",
+                )
+                val response = withContext(Dispatchers.IO) {
+                    processAssistantQuery(
+                        query = query,
+                        image = image,
+                        ocrResult = current.ocrResult,
+                        classification = classification,
+                    )
                 }
                 _uiState.update {
                     it.copy(
                         processingStage = null,
-                        classification = classification,
                         response = response,
                     )
                 }
@@ -157,7 +272,9 @@ class AssistantViewModel(
 
     override fun onCleared() {
         processAssistantQuery.close()
+        imageClassifier.close()
         ocrRepository.close()
+        textLanguageIdentifier.close()
         _uiState.value.image?.recycle()
     }
 
@@ -169,9 +286,12 @@ class AssistantViewModel(
                 val classifier = LiteRtImageClassifier(context.applicationContext)
                 val repository = FirebaseAssistantRepository()
                 val ocrRepository = MlKitOcrRepository()
+                val textLanguageIdentifier = MlKitTextLanguageIdentifier()
                 return AssistantViewModel(
-                    ProcessAssistantQueryUseCase(classifier, repository),
+                    ProcessAssistantQueryUseCase(repository),
+                    classifier,
                     ocrRepository,
+                    textLanguageIdentifier,
                 ) as T
             }
         }

@@ -8,6 +8,7 @@ composeBom = "2026.08.00"
 coroutines = "1.11.0"
 documentScanner = "16.0.0"
 textRecognition = "16.0.1"
+languageId = "17.0.6"
 litert = "2.2.0"
 firebaseBom = "34.18.0"
 googleServices = "4.5.0"
@@ -31,6 +32,7 @@ kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 kotlinx-coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-play-services", version.ref = "coroutines" }
 mlkit-document-scanner = { group = "com.google.android.gms", name = "play-services-mlkit-document-scanner", version.ref = "documentScanner" }
 mlkit-text-recognition = { group = "com.google.mlkit", name = "text-recognition", version.ref = "textRecognition" }
+mlkit-language-id = { group = "com.google.mlkit", name = "language-id", version.ref = "languageId" }
 litert = { group = "com.google.ai.edge.litert", name = "litert", version.ref = "litert" }
 litert-api = { group = "com.google.ai.edge.litert", name = "litert-api", version.ref = "litert" }
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }

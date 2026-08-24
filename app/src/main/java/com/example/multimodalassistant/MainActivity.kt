@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.runtime.getValue
@@ -41,6 +42,22 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private val galleryLauncher = registerForActivityResult(
+        ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        if (uri == null) {
+            viewModel.setImporting(false)
+            return@registerForActivityResult
+        }
+        lifecycleScope.launch {
+            runCatching { scannerManager.decodeUri(uri) }
+                .onSuccess(viewModel::setImage)
+                .onFailure { error ->
+                    viewModel.showError(error.localizedMessage ?: "The selected image could not be opened.")
+                }
+        }
+    }
+
     private val microphonePermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
@@ -71,8 +88,8 @@ class MainActivity : ComponentActivity() {
                 AssistantScreen(
                     state = state,
                     speechState = speechState,
-                    onPromptChanged = viewModel::updatePrompt,
                     onScan = ::requestScan,
+                    onPickImage = ::pickImage,
                     onStartSpeech = ::requestSpeech,
                     onStopSpeech = speechManager::stopListening,
                     onToggleOcrBoxes = viewModel::toggleOcrBoxes,
@@ -96,6 +113,13 @@ class MainActivity : ComponentActivity() {
         } else {
             cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
+    }
+
+    private fun pickImage() {
+        viewModel.setImporting(true)
+        galleryLauncher.launch(
+            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+        )
     }
 
     private fun launchScanner() {

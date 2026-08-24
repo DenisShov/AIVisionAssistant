@@ -79,6 +79,7 @@ dependencies {
 
     implementation(libs.mlkit.document.scanner)
     implementation(libs.mlkit.text.recognition)
+    implementation(libs.mlkit.language.id)
     implementation(libs.litert)
     implementation(libs.litert.api)
 
