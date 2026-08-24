@@ -10,8 +10,9 @@ import com.google.firebase.Firebase
 import com.google.firebase.ai.ai
 import com.google.firebase.ai.type.GenerativeBackend
 import com.google.firebase.ai.type.content
+import javax.inject.Inject
 
-class FirebaseAssistantRepository : AssistantRepository {
+class FirebaseAssistantRepository @Inject constructor() : AssistantRepository {
     private val model by lazy {
         Firebase.ai(backend = GenerativeBackend.googleAI())
             .generativeModel(MODEL_NAME)
@@ -37,8 +38,6 @@ class FirebaseAssistantRepository : AssistantRepository {
             if (uploadBitmap !== image) uploadBitmap.recycle()
         }
     }
-
-    override fun close() = Unit
 
     private fun Bitmap.forUpload(): Bitmap {
         val maxSide = maxOf(width, height)

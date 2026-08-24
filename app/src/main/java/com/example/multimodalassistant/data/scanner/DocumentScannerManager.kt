@@ -7,14 +7,16 @@ import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
-import androidx.activity.ComponentActivity
 import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions
 import com.google.mlkit.vision.documentscanner.GmsDocumentScanning
 import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import dagger.hilt.android.scopes.ActivityScoped
+import javax.inject.Inject
 
-class DocumentScannerManager(private val activity: ComponentActivity) {
+@ActivityScoped
+class DocumentScannerManager @Inject constructor(private val activity: Activity) {
     private val scanner = GmsDocumentScanning.getClient(
         GmsDocumentScannerOptions.Builder()
             .setGalleryImportAllowed(true)

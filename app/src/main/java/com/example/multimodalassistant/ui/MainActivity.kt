@@ -1,4 +1,4 @@
-package com.example.multimodalassistant
+package com.example.multimodalassistant.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -14,19 +14,22 @@ import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.example.multimodalassistant.data.scanner.DocumentScannerManager
-import com.example.multimodalassistant.data.speech.SpeechToTextManager
-import com.example.multimodalassistant.ui.AssistantScreen
-import com.example.multimodalassistant.ui.AssistantViewModel
+import com.example.multimodalassistant.domain.repository.SpeechInput
+import com.example.multimodalassistant.ui.compose.AssistantScreen
 import com.example.multimodalassistant.ui.theme.AIVisionAssistantTheme
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    private val viewModel: AssistantViewModel by viewModels {
-        AssistantViewModel.factory(applicationContext)
-    }
+    private val viewModel: AssistantViewModel by viewModels()
 
-    private lateinit var speechManager: SpeechToTextManager
-    private lateinit var scannerManager: DocumentScannerManager
+    @Inject
+    lateinit var speechInput: SpeechInput
+
+    @Inject
+    lateinit var scannerManager: DocumentScannerManager
 
     private val scannerLauncher = registerForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult(),
@@ -62,7 +65,7 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
         if (granted) {
-            speechManager.startListening()
+            speechInput.startListening()
         } else {
             viewModel.showError("Microphone permission is required to record speech.")
         }
@@ -78,20 +81,18 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        speechManager = SpeechToTextManager(this)
-        scannerManager = DocumentScannerManager(this)
 
         setContent {
             AIVisionAssistantTheme {
                 val state by viewModel.uiState.collectAsStateWithLifecycle()
-                val speechState by speechManager.state.collectAsStateWithLifecycle()
+                val speechState by speechInput.state.collectAsStateWithLifecycle()
                 AssistantScreen(
                     state = state,
                     speechState = speechState,
                     onScan = ::requestScan,
                     onPickImage = ::pickImage,
                     onStartSpeech = ::requestSpeech,
-                    onStopSpeech = speechManager::stopListening,
+                    onStopSpeech = speechInput::stopListening,
                     onToggleOcrBoxes = viewModel::toggleOcrBoxes,
                     onProcess = viewModel::process,
                 )
@@ -101,7 +102,7 @@ class MainActivity : ComponentActivity() {
 
     private fun requestSpeech() {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-            speechManager.startListening()
+            speechInput.startListening()
         } else {
             microphonePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
@@ -134,7 +135,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        speechManager.close()
+        speechInput.close()
         super.onDestroy()
     }
 }

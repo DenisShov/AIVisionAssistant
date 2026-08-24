@@ -4,7 +4,7 @@ import android.graphics.Bitmap
 import com.example.multimodalassistant.domain.model.ClassificationResult
 import com.example.multimodalassistant.domain.model.OcrResult
 
-interface AssistantRepository : AutoCloseable {
+interface AssistantRepository {
     suspend fun analyze(
         query: String,
         image: Bitmap,

@@ -1,6 +1,7 @@
 package com.example.multimodalassistant.ui
 
 import androidx.compose.ui.graphics.Color
+import com.example.multimodalassistant.ui.compose.toMarkdownAnnotatedString
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

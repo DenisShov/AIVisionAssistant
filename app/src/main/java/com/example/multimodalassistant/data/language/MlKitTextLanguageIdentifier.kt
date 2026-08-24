@@ -5,8 +5,9 @@ import com.example.multimodalassistant.domain.repository.TextLanguageIdentifier
 import com.google.mlkit.nl.languageid.LanguageIdentification
 import kotlinx.coroutines.tasks.await
 import java.util.Locale
+import javax.inject.Inject
 
-class MlKitTextLanguageIdentifier : TextLanguageIdentifier {
+class MlKitTextLanguageIdentifier @Inject constructor() : TextLanguageIdentifier {
     private val identifier = LanguageIdentification.getClient()
 
     override suspend fun identify(text: String): DetectedLanguage? {

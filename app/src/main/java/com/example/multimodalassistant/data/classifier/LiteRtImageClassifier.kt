@@ -7,8 +7,12 @@ import com.example.multimodalassistant.domain.model.ClassificationResult
 import com.example.multimodalassistant.domain.repository.ImageClassifier
 import com.google.ai.edge.litert.Accelerator
 import com.google.ai.edge.litert.CompiledModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
 
-class LiteRtImageClassifier(context: Context) : ImageClassifier {
+class LiteRtImageClassifier @Inject constructor(
+    @ApplicationContext context: Context,
+) : ImageClassifier {
     private val assets = context.applicationContext.assets
     private val labels by lazy {
         assets.open(LABELS_FILE).bufferedReader().use { it.readLines() }

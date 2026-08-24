@@ -6,29 +6,28 @@ import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import com.example.multimodalassistant.domain.model.SpeechRecognitionState
+import com.example.multimodalassistant.domain.repository.SpeechInput
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.Locale
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
 
-sealed interface SpeechState {
-    data object Idle : SpeechState
-    data object Listening : SpeechState
-    data class Success(val text: String) : SpeechState
-    data class Error(val message: String) : SpeechState
-}
-
-class SpeechToTextManager(context: Context) : AutoCloseable {
+class SpeechToTextManager @Inject constructor(
+    @ApplicationContext context: Context,
+) : SpeechInput {
     private val appContext = context.applicationContext
     private val recognizer = SpeechRecognizer.createSpeechRecognizer(appContext)
-    private val _state = MutableStateFlow<SpeechState>(SpeechState.Idle)
+    private val _state = MutableStateFlow<SpeechRecognitionState>(SpeechRecognitionState.Idle)
 
-    val state: StateFlow<SpeechState> = _state.asStateFlow()
+    override val state: StateFlow<SpeechRecognitionState> = _state.asStateFlow()
 
     init {
         recognizer.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(params: Bundle?) {
-                _state.value = SpeechState.Listening
+                _state.value = SpeechRecognitionState.Listening
             }
 
             override fun onBeginningOfSpeech() = Unit
@@ -37,7 +36,7 @@ class SpeechToTextManager(context: Context) : AutoCloseable {
             override fun onEndOfSpeech() = Unit
 
             override fun onError(error: Int) {
-                _state.value = SpeechState.Error(error.toMessage())
+                _state.value = SpeechRecognitionState.Error(error.toMessage())
             }
 
             override fun onResults(results: Bundle?) {
@@ -45,9 +44,9 @@ class SpeechToTextManager(context: Context) : AutoCloseable {
                     ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                     ?.firstOrNull()
                 _state.value = if (text.isNullOrBlank()) {
-                    SpeechState.Error("No speech was recognized. Please try again.")
+                    SpeechRecognitionState.Error("No speech was recognized. Please try again.")
                 } else {
-                    SpeechState.Success(text)
+                    SpeechRecognitionState.Success(text)
                 }
             }
 
@@ -56,13 +55,15 @@ class SpeechToTextManager(context: Context) : AutoCloseable {
         })
     }
 
-    fun startListening() {
+    override fun startListening() {
         if (!SpeechRecognizer.isRecognitionAvailable(appContext)) {
-            _state.value = SpeechState.Error("Speech recognition is not available on this device.")
+            _state.value = SpeechRecognitionState.Error(
+                "Speech recognition is not available on this device.",
+            )
             return
         }
 
-        _state.value = SpeechState.Listening
+        _state.value = SpeechRecognitionState.Listening
         recognizer.startListening(
             Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(
@@ -76,12 +77,8 @@ class SpeechToTextManager(context: Context) : AutoCloseable {
         )
     }
 
-    fun stopListening() {
+    override fun stopListening() {
         recognizer.stopListening()
-    }
-
-    fun reset() {
-        _state.value = SpeechState.Idle
     }
 
     override fun close() {

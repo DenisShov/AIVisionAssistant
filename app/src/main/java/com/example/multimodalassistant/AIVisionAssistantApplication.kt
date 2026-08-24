@@ -1,7 +1,9 @@
 package com.example.multimodalassistant
 
 import android.app.Application
+import dagger.hilt.android.HiltAndroidApp
 
+@HiltAndroidApp
 class AIVisionAssistantApplication : Application() {
     override fun onCreate() {
         super.onCreate()

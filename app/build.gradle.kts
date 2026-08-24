@@ -2,6 +2,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.google.services) apply false
+    alias(libs.plugins.hilt)
+    alias(libs.plugins.ksp)
 }
 
 val firebaseConfigFile = layout.projectDirectory.file("google-services.json").asFile
@@ -87,6 +89,9 @@ dependencies {
     implementation(libs.firebase.ai)
     debugImplementation(libs.firebase.appcheck.debug)
     releaseImplementation(libs.firebase.appcheck.playintegrity)
+
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.android.compiler)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -4,21 +4,20 @@ import android.graphics.Bitmap
 import com.example.multimodalassistant.domain.model.ClassificationResult
 import com.example.multimodalassistant.domain.model.OcrResult
 import com.example.multimodalassistant.domain.repository.AssistantRepository
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.withContext
 
 class ProcessAssistantQueryUseCase(
     private val assistantRepository: AssistantRepository,
-) : AutoCloseable {
+    private val ioDispatcher: CoroutineDispatcher,
+) {
 
     suspend operator fun invoke(
         query: String,
         image: Bitmap,
         ocrResult: OcrResult?,
         classification: ClassificationResult,
-    ): String {
-        return assistantRepository.analyze(query, image, classification, ocrResult)
-    }
-
-    override fun close() {
-        assistantRepository.close()
+    ): String = withContext(ioDispatcher) {
+        assistantRepository.analyze(query, image, classification, ocrResult)
     }
 }

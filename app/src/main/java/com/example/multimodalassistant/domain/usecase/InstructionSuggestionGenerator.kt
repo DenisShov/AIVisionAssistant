@@ -4,7 +4,7 @@ import com.example.multimodalassistant.domain.model.ClassificationResult
 import com.example.multimodalassistant.domain.model.DetectedLanguage
 import com.example.multimodalassistant.domain.model.OcrResult
 
-object InstructionSuggestionGenerator {
+class InstructionSuggestionGenerator {
     fun generate(
         ocrResult: OcrResult?,
         classification: ClassificationResult?,
@@ -61,18 +61,20 @@ object InstructionSuggestionGenerator {
         .lineSequence()
         .count { line -> NUMBER_PATTERN.findAll(line).count() >= 2 } >= 2
 
-    private val INVOICE_TERMS = listOf("invoice", "faktura", "due date", "amount due")
-    private val RECEIPT_TERMS = listOf("receipt", "subtotal", "total", "vat", "tax")
-    private val DATE_TERMS = listOf("deadline", "due date", "expires", "valid until")
-    private val CONTACT_PATTERN = Regex(
-        "(?:[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}|(?:\\+?\\d[\\d ()-]{7,}\\d))",
-        RegexOption.IGNORE_CASE,
-    )
-    private val DATE_PATTERN = Regex(
-        "\\b(?:\\d{1,2}[./-]\\d{1,2}[./-]\\d{2,4}|\\d{4}-\\d{2}-\\d{2})\\b",
-    )
-    private val NUMBER_PATTERN = Regex("\\b\\d+(?:[.,]\\d+)?\\b")
-    private const val LONG_DOCUMENT_CHARACTERS = 1_200
-    private const val MIN_USEFUL_CONFIDENCE = 0.35f
-    private const val MAX_SUGGESTIONS = 6
+    private companion object {
+        val INVOICE_TERMS = listOf("invoice", "faktura", "due date", "amount due")
+        val RECEIPT_TERMS = listOf("receipt", "subtotal", "total", "vat", "tax")
+        val DATE_TERMS = listOf("deadline", "due date", "expires", "valid until")
+        val CONTACT_PATTERN = Regex(
+            "(?:[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}|(?:\\+?\\d[\\d ()-]{7,}\\d))",
+            RegexOption.IGNORE_CASE,
+        )
+        val DATE_PATTERN = Regex(
+            "\\b(?:\\d{1,2}[./-]\\d{1,2}[./-]\\d{2,4}|\\d{4}-\\d{2}-\\d{2})\\b",
+        )
+        val NUMBER_PATTERN = Regex("\\b\\d+(?:[.,]\\d+)?\\b")
+        const val LONG_DOCUMENT_CHARACTERS = 1_200
+        const val MIN_USEFUL_CONFIDENCE = 0.35f
+        const val MAX_SUGGESTIONS = 6
+    }
 }

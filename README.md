@@ -1,7 +1,20 @@
 # AI Vision Assistant
 
-Native Android multimodal assistant built with Kotlin, Jetpack Compose, MVVM, and clean
-domain/repository boundaries.
+Native Android multimodal assistant built with Kotlin, Jetpack Compose, MVVM, Hilt dependency
+injection, and clean domain/repository boundaries.
+
+## Architecture
+
+- `domain/model` contains the application models and configuration values.
+- `domain/repository` defines the capabilities required by the application without referencing
+  concrete ML Kit, LiteRT, Firebase, or speech implementations.
+- `domain/usecase` coordinates local analysis and cloud processing. Dispatchers are supplied from
+  the composition root so the use cases remain deterministic and testable.
+- `data` contains Android, ML Kit, LiteRT, and Firebase adapters.
+- `ui` contains the activity, lifecycle-aware ViewModel, mutually exclusive loading/result/error
+  state, and focused Compose files for the screen, result panels, image preview, and Markdown.
+- `di` is the Hilt composition root. ViewModel-owned ML resources and activity-owned speech and
+  scanner resources use matching scopes.
 
 ## Pipeline
 
@@ -83,6 +96,7 @@ debug App Check provider in a release build.
 - ML Kit Language Identification 17.0.6 (bundled on-device model)
 - Firebase BoM 34.18.0 (`firebase-ai`, App Check Debug, and Play Integrity)
 - Google Services Gradle plugin 4.5.0
+- Hilt 2.60.1 with KSP 2.3.10
 - AndroidX Activity 1.13.0, Lifecycle 2.11.0, Core KTX 1.19.0
 
 The LiteRT 2.2.0 runtime and Kotlin API artifacts currently publish the same Android namespace.

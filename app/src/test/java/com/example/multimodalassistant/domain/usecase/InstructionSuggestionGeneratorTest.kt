@@ -8,9 +8,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class InstructionSuggestionGeneratorTest {
+    private val generator = InstructionSuggestionGenerator()
+
     @Test
     fun suggestsInvoiceAndDateTasksFromRecognizedText() {
-        val suggestions = InstructionSuggestionGenerator.generate(
+        val suggestions = generator.generate(
             ocrResult = OcrResult(
                 fullText = "Invoice 42\nDue date 2026-09-30\nTotal PLN 120.00",
                 blocks = emptyList(),
@@ -25,7 +27,7 @@ class InstructionSuggestionGeneratorTest {
 
     @Test
     fun usesClassificationForImagesWithoutText() {
-        val suggestions = InstructionSuggestionGenerator.generate(
+        val suggestions = generator.generate(
             ocrResult = OcrResult.Empty,
             classification = ClassificationResult("golden retriever", 0.82f, "GPU"),
         )
@@ -36,7 +38,7 @@ class InstructionSuggestionGeneratorTest {
 
     @Test
     fun suggestsEnglishTranslationForDetectedUkrainian() {
-        val suggestions = InstructionSuggestionGenerator.generate(
+        val suggestions = generator.generate(
             ocrResult = OcrResult(
                 fullText = "Це український текст із достатньою кількістю слів для визначення мови.",
                 blocks = emptyList(),
@@ -51,7 +53,7 @@ class InstructionSuggestionGeneratorTest {
 
     @Test
     fun doesNotSuggestTranslationWhenEnglishIsDetected() {
-        val suggestions = InstructionSuggestionGenerator.generate(
+        val suggestions = generator.generate(
             ocrResult = OcrResult(
                 fullText = "This is a sufficiently long English document for language detection.",
                 blocks = emptyList(),

@@ -9,8 +9,9 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import kotlinx.coroutines.tasks.await
+import javax.inject.Inject
 
-class MlKitOcrRepository : OcrRepository {
+class MlKitOcrRepository @Inject constructor() : OcrRepository {
     private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
 
     override suspend fun recognize(bitmap: Bitmap): OcrResult {
