@@ -20,9 +20,11 @@ class LiteRtImageClassifier @Inject constructor(
 
     private var compiledModel: CompiledModel? = null
     private var activeAccelerator = Accelerator.GPU
+    private var isClosed = false
 
     @Synchronized
     override fun classify(bitmap: Bitmap): ClassificationResult {
+        check(!isClosed) { "The LiteRT classifier is already closed." }
         val model = compiledModel ?: createModel().also { compiledModel = it }
         return try {
             runInference(model, bitmap)
@@ -90,7 +92,10 @@ class LiteRtImageClassifier @Inject constructor(
         }
     }
 
+    @Synchronized
     override fun close() {
+        if (isClosed) return
+        isClosed = true
         compiledModel?.close()
         compiledModel = null
     }

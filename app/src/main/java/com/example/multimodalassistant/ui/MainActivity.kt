@@ -126,10 +126,10 @@ class MainActivity : ComponentActivity() {
     private fun launchScanner() {
         viewModel.setScanning(true)
         scannerManager.startScanIntent()
-            .addOnSuccessListener { sender ->
+            .addOnSuccessListener(this) { sender ->
                 scannerLauncher.launch(IntentSenderRequest.Builder(sender).build())
             }
-            .addOnFailureListener { error ->
+            .addOnFailureListener(this) { error ->
                 viewModel.showError(error.localizedMessage ?: "ML Kit document scanner is unavailable.")
             }
     }

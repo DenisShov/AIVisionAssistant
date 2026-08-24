@@ -21,6 +21,7 @@ class SpeechToTextManager @Inject constructor(
     private val appContext = context.applicationContext
     private val recognizer = SpeechRecognizer.createSpeechRecognizer(appContext)
     private val _state = MutableStateFlow<SpeechRecognitionState>(SpeechRecognitionState.Idle)
+    private var isClosed = false
 
     override val state: StateFlow<SpeechRecognitionState> = _state.asStateFlow()
 
@@ -56,6 +57,7 @@ class SpeechToTextManager @Inject constructor(
     }
 
     override fun startListening() {
+        if (isClosed) return
         if (!SpeechRecognizer.isRecognitionAvailable(appContext)) {
             _state.value = SpeechRecognitionState.Error(
                 "Speech recognition is not available on this device.",
@@ -78,11 +80,17 @@ class SpeechToTextManager @Inject constructor(
     }
 
     override fun stopListening() {
+        if (isClosed) return
         recognizer.stopListening()
     }
 
     override fun close() {
+        if (isClosed) return
+        isClosed = true
+        recognizer.setRecognitionListener(null)
+        recognizer.cancel()
         recognizer.destroy()
+        _state.value = SpeechRecognitionState.Idle
     }
 }
 
